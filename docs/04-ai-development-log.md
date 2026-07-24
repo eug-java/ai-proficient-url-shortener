@@ -4,7 +4,7 @@ Evidence of engineer-led AI-assisted delivery. Each entry includes tool, prompt 
 
 **Tooling used across the project:** Cursor IDE Agent (chat + codebase tools). AI output was treated as untrusted draft; no secrets or production data were sent to AI.
 
-**Traceability note:** This assessment archive was finalized as a working tree. Validation evidence is `./mvnw clean verify` (see `docs/evidence/`). When Git history is available in the submission zip, map entries to commits via the `Files` / `Change set` fields.
+**Traceability note:** This assessment archive was finalized as a working tree. Validation evidence: `./mvnw clean verify` (see `docs/evidence/`). Baseline commit for this remediation pack: `3508457` (working tree may include later polish).
 
 ---
 
@@ -318,6 +318,8 @@ Evidence of engineer-led AI-assisted delivery. Each entry includes tool, prompt 
 ./mvnw clean verify
 ```
 Evidence: `docs/evidence/mvn-verify.log`, `docs/evidence/surefire-summary.txt`, `docs/evidence/jacoco/` (line coverage gate met; instructions ~89%).
+
+**Commit:** `3508457`
 
 **Result:** Accepted. BUILD SUCCESS — 33 tests, 0 failures.
 
