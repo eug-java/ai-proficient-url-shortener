@@ -1,0 +1,24 @@
+# Production-oriented profile. Set SPRING_PROFILES_ACTIVE=prod.
+# Credentials must be provided via environment — no local defaults.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+app:
+  base-url: ${BASE_URL}
+
+management:
+  endpoints.web.exposure.include: health
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.example.shortener: INFO

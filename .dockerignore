@@ -1,0 +1,10 @@
+target/
+.git/
+.idea/
+*.iml
+docs/
+.github/
+canvases/
+*.md
+.env
+.DS_Store

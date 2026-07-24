@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UrlService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ai-proficient-url-shortener</a> &gt; <a href="index.source.html" class="el_package">com.example.shortener.application</a> &gt; <span class="el_source">UrlService.java</span></div><h1>UrlService.java</h1><pre class="source lang-java linenums">package com.example.shortener.application;
+
+import com.example.shortener.domain.AliasGenerator;
+import com.example.shortener.domain.DuplicateAliasException;
+import com.example.shortener.domain.ExpiredException;
+import com.example.shortener.domain.InvalidRequestException;
+import com.example.shortener.domain.NotFoundException;
+import com.example.shortener.domain.UrlMapping;
+import com.example.shortener.domain.UrlPolicy;
+import com.example.shortener.observability.AliasType;
+import com.example.shortener.observability.AnalyticsResult;
+import com.example.shortener.observability.RedirectResult;
+import com.example.shortener.observability.ShortenerMetrics;
+import com.example.shortener.persistence.UrlMappingRepository;
+import java.sql.SQLException;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class UrlService {
+
+<span class="fc" id="L30">    private static final Logger log = LoggerFactory.getLogger(UrlService.class);</span>
+    private static final String UNIQUE_VIOLATION = &quot;23505&quot;;
+    private static final String SHORT_CODE_UNIQUE_CONSTRAINT = &quot;uk_url_mapping_short_code&quot;;
+
+    private final UrlMappingRepository repository;
+    private final UrlPolicy policy;
+    private final AliasGenerator generator;
+    private final Clock clock;
+    private final String baseUrl;
+    private final ShortenerMetrics metrics;
+    private final AnalyticsWriter analyticsWriter;
+    private final UrlMappingWriter mappingWriter;
+    private final int generationAttempts;
+
+    public UrlService(
+            UrlMappingRepository repository,
+            UrlPolicy policy,
+            AliasGenerator generator,
+            Clock clock,
+            @Value(&quot;${app.base-url}&quot;) String baseUrl,
+            ShortenerMetrics metrics,
+            AnalyticsWriter analyticsWriter,
+            UrlMappingWriter mappingWriter,
+            @Value(&quot;${app.alias-generation-attempts:5}&quot;) int generationAttempts
+<span class="fc" id="L54">    ) {</span>
+<span class="fc" id="L55">        this.repository = repository;</span>
+<span class="fc" id="L56">        this.policy = policy;</span>
+<span class="fc" id="L57">        this.generator = generator;</span>
+<span class="fc" id="L58">        this.clock = clock;</span>
+<span class="fc" id="L59">        this.baseUrl = baseUrl.replaceAll(&quot;/+$&quot;, &quot;&quot;);</span>
+<span class="fc" id="L60">        this.metrics = metrics;</span>
+<span class="fc" id="L61">        this.analyticsWriter = analyticsWriter;</span>
+<span class="fc" id="L62">        this.mappingWriter = mappingWriter;</span>
+<span class="fc" id="L63">        this.generationAttempts = generationAttempts;</span>
+<span class="fc" id="L64">    }</span>
+
+    public CreateUrlResult create(CreateUrlCommand command) {
+<span class="fc" id="L67">        String url = policy.validateUrl(command.originalUrl());</span>
+<span class="fc" id="L68">        String alias = policy.validateAlias(command.customAlias());</span>
+<span class="fc" id="L69">        Instant now = clock.instant();</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        AliasType aliasType = alias == null ? AliasType.GENERATED : AliasType.CUSTOM;</span>
+
+<span class="pc bpc" id="L72" title="1 of 4 branches missed.">        if (command.expiresAt() != null &amp;&amp; !command.expiresAt().isAfter(now)) {</span>
+<span class="fc" id="L73">            throw new InvalidRequestException(&quot;Expiration must be in the future&quot;);</span>
+        }
+
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        int attempts = alias == null ? generationAttempts : 1;</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        for (int attempt = 0; attempt &lt; attempts; attempt++) {</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            String code = alias == null ? generator.generate() : alias;</span>
+            try {
+<span class="fc" id="L80">                UrlMapping saved = mappingWriter.insert(</span>
+<span class="fc" id="L81">                        new UrlMapping(UUID.randomUUID(), code, url, command.expiresAt(), now)</span>
+                );
+<span class="fc" id="L83">                metrics.urlCreated(aliasType);</span>
+<span class="fc" id="L84">                log.info(</span>
+                        &quot;Created short URL shortCode={} aliasType={}&quot;,
+                        code,
+<span class="fc" id="L87">                        aliasType.name().toLowerCase()</span>
+                );
+<span class="fc" id="L89">                return new CreateUrlResult(</span>
+<span class="fc" id="L90">                        saved.getId(),</span>
+                        code,
+                        baseUrl + &quot;/&quot; + code,
+                        url,
+<span class="fc" id="L94">                        saved.getExpiresAt(),</span>
+<span class="fc" id="L95">                        saved.getCreatedAt()</span>
+                );
+<span class="fc" id="L97">            } catch (DataIntegrityViolationException exception) {</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">                if (!isUniqueViolation(exception)) {</span>
+<span class="nc" id="L99">                    throw exception;</span>
+                }
+<span class="fc bfc" id="L101" title="All 2 branches covered.">                if (alias != null) {</span>
+<span class="fc" id="L102">                    throw new DuplicateAliasException();</span>
+                }
+<span class="fc" id="L104">                metrics.aliasCollision(AliasType.GENERATED);</span>
+<span class="fc" id="L105">                log.debug(&quot;Generated alias collision on attempt {}&quot;, attempt + 1);</span>
+            }
+        }
+
+<span class="fc" id="L109">        throw new IllegalStateException(</span>
+                &quot;Unable to generate a unique alias after &quot; + generationAttempts + &quot; attempts&quot;
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public String resolve(String code) {
+<span class="fc" id="L116">        long start = System.nanoTime();</span>
+<span class="fc" id="L117">        RedirectResult result = RedirectResult.NOT_FOUND;</span>
+        try {
+<span class="fc" id="L119">            UrlMapping mapping = repository.findByShortCode(code).orElse(null);</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">            if (mapping == null) {</span>
+<span class="fc" id="L121">                result = RedirectResult.NOT_FOUND;</span>
+<span class="fc" id="L122">                throw new NotFoundException();</span>
+            }
+
+<span class="fc bfc" id="L125" title="All 2 branches covered.">            if (mapping.isExpired(clock.instant())) {</span>
+<span class="fc" id="L126">                result = RedirectResult.EXPIRED;</span>
+<span class="fc" id="L127">                throw new ExpiredException();</span>
+            }
+
+            try {
+<span class="fc" id="L131">                analyticsWriter.recordClick(code);</span>
+<span class="fc" id="L132">                metrics.analyticsUpdate(AnalyticsResult.SUCCESS);</span>
+<span class="fc" id="L133">            } catch (RuntimeException exception) {</span>
+<span class="fc" id="L134">                metrics.analyticsUpdate(AnalyticsResult.FAILURE);</span>
+<span class="fc" id="L135">                log.warn(&quot;Analytics update failed for shortCode={}&quot;, code, exception);</span>
+<span class="fc" id="L136">            }</span>
+
+<span class="fc" id="L138">            result = RedirectResult.SUCCESS;</span>
+<span class="fc" id="L139">            return mapping.getOriginalUrl();</span>
+        } finally {
+<span class="fc" id="L141">            log.info(&quot;Redirect shortCode={} result={}&quot;, code, result.name().toLowerCase());</span>
+<span class="fc" id="L142">            metrics.redirect(result);</span>
+<span class="fc" id="L143">            metrics.redirectDuration(result, System.nanoTime() - start);</span>
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public UrlDetails get(String code) {
+<span class="fc" id="L149">        UrlMapping mapping = repository.findByShortCode(code)</span>
+<span class="fc" id="L150">                .orElseThrow(NotFoundException::new);</span>
+<span class="fc" id="L151">        return toDetails(mapping);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public AnalyticsView analytics(String code) {
+<span class="fc" id="L156">        UrlMapping mapping = repository.findByShortCode(code)</span>
+<span class="fc" id="L157">                .orElseThrow(NotFoundException::new);</span>
+<span class="fc" id="L158">        return new AnalyticsView(</span>
+                code,
+<span class="fc" id="L160">                mapping.getTotalClicks(),</span>
+<span class="fc" id="L161">                mapping.getLastAccessedAt(),</span>
+<span class="fc" id="L162">                mapping.getExpiresAt()</span>
+        );
+    }
+
+    private UrlDetails toDetails(UrlMapping mapping) {
+<span class="fc" id="L167">        return new UrlDetails(</span>
+<span class="fc" id="L168">                mapping.getId(),</span>
+<span class="fc" id="L169">                mapping.getShortCode(),</span>
+<span class="fc" id="L170">                baseUrl + &quot;/&quot; + mapping.getShortCode(),</span>
+<span class="fc" id="L171">                mapping.getOriginalUrl(),</span>
+<span class="fc" id="L172">                mapping.getExpiresAt(),</span>
+<span class="fc" id="L173">                mapping.getCreatedAt(),</span>
+<span class="fc" id="L174">                mapping.getTotalClicks(),</span>
+<span class="fc" id="L175">                mapping.getLastAccessedAt()</span>
+        );
+    }
+
+    private boolean isUniqueViolation(DataIntegrityViolationException exception) {
+<span class="fc" id="L180">        Throwable cause = exception.getMostSpecificCause();</span>
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">        if (!(cause instanceof SQLException sqlException)) {</span>
+<span class="nc" id="L182">            return false;</span>
+        }
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">        if (!UNIQUE_VIOLATION.equals(sqlException.getSQLState())) {</span>
+<span class="nc" id="L185">            return false;</span>
+        }
+<span class="fc" id="L187">        String message = sqlException.getMessage();</span>
+        // Require named unique constraint so unrelated 23505 errors are not mapped to DUPLICATE_ALIAS.
+        // PostgreSQL includes the constraint name in the driver message; avoid compile-time driver coupling.
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">        return message != null</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">                &amp;&amp; message.toLowerCase(Locale.ROOT).contains(SHORT_CODE_UNIQUE_CONSTRAINT);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

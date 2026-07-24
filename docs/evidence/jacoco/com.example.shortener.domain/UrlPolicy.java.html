@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UrlPolicy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ai-proficient-url-shortener</a> &gt; <a href="index.source.html" class="el_package">com.example.shortener.domain</a> &gt; <span class="el_source">UrlPolicy.java</span></div><h1>UrlPolicy.java</h1><pre class="source lang-java linenums">package com.example.shortener.domain;
+
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Pattern;
+import org.springframework.stereotype.Component;
+
+@Component
+<span class="fc" id="L15">public class UrlPolicy {</span>
+
+<span class="fc" id="L17">    private static final Set&lt;String&gt; SCHEMES = Set.of(&quot;http&quot;, &quot;https&quot;);</span>
+<span class="fc" id="L18">    private static final Set&lt;String&gt; RESERVED_ALIASES = Set.of(</span>
+            &quot;api&quot;,
+            &quot;actuator&quot;,
+            &quot;swagger-ui&quot;,
+            &quot;swagger-ui.html&quot;,
+            &quot;v3&quot;,
+            &quot;favicon.ico&quot;,
+            &quot;error&quot;
+    );
+<span class="fc" id="L27">    private static final Set&lt;String&gt; BLOCKED_HOSTS = Set.of(</span>
+            &quot;localhost&quot;,
+            &quot;metadata.google.internal&quot;,
+            &quot;metadata&quot;
+    );
+<span class="fc" id="L32">    private static final Pattern ALIAS = Pattern.compile(&quot;^[A-Za-z0-9_-]+$&quot;);</span>
+    private static final int MIN_ALIAS_LENGTH = 3;
+    private static final int MAX_ALIAS_LENGTH = 32;
+
+    public String validateUrl(String raw) {
+<span class="pc bpc" id="L37" title="2 of 4 branches missed.">        if (raw == null || raw.isBlank()) {</span>
+<span class="nc" id="L38">            throw new InvalidRequestException(&quot;URL must not be blank&quot;);</span>
+        }
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        if (raw.length() &gt; 2048) {</span>
+<span class="nc" id="L41">            throw new InvalidRequestException(&quot;URL exceeds maximum length&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L45">            URI uri = new URI(raw.trim());</span>
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">            String scheme = uri.getScheme() == null</span>
+<span class="nc" id="L47">                    ? null</span>
+<span class="fc" id="L48">                    : uri.getScheme().toLowerCase(Locale.ROOT);</span>
+
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            if (!SCHEMES.contains(scheme)) {</span>
+<span class="fc" id="L51">                throw new InvalidRequestException(&quot;Only HTTP and HTTPS are supported&quot;);</span>
+            }
+<span class="pc bpc" id="L53" title="2 of 4 branches missed.">            if (uri.getHost() == null || uri.getHost().isBlank()) {</span>
+<span class="nc" id="L54">                throw new InvalidRequestException(&quot;URL must contain a host&quot;);</span>
+            }
+<span class="fc bfc" id="L56" title="All 2 branches covered.">            if (uri.getUserInfo() != null) {</span>
+<span class="fc" id="L57">                throw new InvalidRequestException(&quot;URL credentials are not supported&quot;);</span>
+            }
+<span class="fc" id="L59">            assertHostAllowed(uri.getHost());</span>
+<span class="fc" id="L60">            return uri.normalize().toString();</span>
+<span class="nc" id="L61">        } catch (URISyntaxException exception) {</span>
+<span class="nc" id="L62">            throw new InvalidRequestException(&quot;Malformed URL&quot;);</span>
+        }
+    }
+
+    public String validateAlias(String alias) {
+<span class="pc bpc" id="L67" title="1 of 4 branches missed.">        if (alias == null || alias.isBlank()) {</span>
+<span class="fc" id="L68">            return null;</span>
+        }
+
+<span class="fc" id="L71">        String value = alias.trim();</span>
+<span class="pc bpc" id="L72" title="1 of 4 branches missed.">        if (value.length() &lt; MIN_ALIAS_LENGTH || value.length() &gt; MAX_ALIAS_LENGTH) {</span>
+<span class="fc" id="L73">            throw new InvalidRequestException(&quot;Custom alias must contain 3 to 32 characters&quot;);</span>
+        }
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (!ALIAS.matcher(value).matches()) {</span>
+<span class="fc" id="L76">            throw new InvalidRequestException(</span>
+                    &quot;Custom alias may contain only letters, digits, underscores, and hyphens&quot;
+            );
+        }
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (RESERVED_ALIASES.contains(value.toLowerCase(Locale.ROOT))) {</span>
+<span class="fc" id="L81">            throw new InvalidRequestException(&quot;Custom alias is reserved&quot;);</span>
+        }
+<span class="fc" id="L83">        return value;</span>
+    }
+
+    private void assertHostAllowed(String host) {
+<span class="fc" id="L87">        String normalized = host.toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">        if (normalized.endsWith(&quot;.&quot;)) {</span>
+<span class="nc" id="L89">            normalized = normalized.substring(0, normalized.length() - 1);</span>
+        }
+<span class="pc bpc" id="L91" title="1 of 4 branches missed.">        if (BLOCKED_HOSTS.contains(normalized) || normalized.endsWith(&quot;.localhost&quot;)) {</span>
+<span class="fc" id="L92">            throw new InvalidRequestException(&quot;URL host is not allowed&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L96">            InetAddress[] addresses = InetAddress.getAllByName(normalized);</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">            for (InetAddress address : addresses) {</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">                if (isBlockedAddress(address)) {</span>
+<span class="fc" id="L99">                    throw new InvalidRequestException(&quot;URL host is not allowed&quot;);</span>
+                }
+            }
+<span class="fc" id="L102">        } catch (UnknownHostException exception) {</span>
+<span class="fc" id="L103">            throw new InvalidRequestException(&quot;URL host could not be resolved&quot;);</span>
+<span class="fc" id="L104">        }</span>
+<span class="fc" id="L105">    }</span>
+
+    /**
+     * Anti-abuse destination policy (not SSRF prevention — this service never fetches destinations).
+     * Every resolved A/AAAA address must be publicly routable.
+     */
+    private boolean isBlockedAddress(InetAddress address) {
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">        return address.isAnyLocalAddress()</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">                || address.isLoopbackAddress()</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">                || address.isLinkLocalAddress()</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">                || address.isSiteLocalAddress()</span>
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">                || address.isMulticastAddress()</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">                || isUniqueLocalIpv6(address)</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">                || isCarrierGradeNat(address);</span>
+    }
+
+    /**
+     * IPv6 unique-local addresses (fc00::/7). {@link InetAddress#isSiteLocalAddress()}
+     * does not cover this range on modern JDKs.
+     */
+    private boolean isUniqueLocalIpv6(InetAddress address) {
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        if (!(address instanceof Inet6Address inet6)) {</span>
+<span class="fc" id="L127">            return false;</span>
+        }
+<span class="fc" id="L129">        byte[] bytes = inet6.getAddress();</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        return (bytes[0] &amp; 0xfe) == 0xfc;</span>
+    }
+
+    /**
+     * Shared address space for carrier-grade NAT (100.64.0.0/10).
+     */
+    private boolean isCarrierGradeNat(InetAddress address) {
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        if (!(address instanceof Inet4Address)) {</span>
+<span class="fc" id="L138">            return false;</span>
+        }
+<span class="fc" id="L140">        byte[] bytes = address.getAddress();</span>
+<span class="fc" id="L141">        int first = bytes[0] &amp; 0xff;</span>
+<span class="fc" id="L142">        int second = bytes[1] &amp; 0xff;</span>
+<span class="pc bpc" id="L143" title="2 of 6 branches missed.">        return first == 100 &amp;&amp; second &gt;= 64 &amp;&amp; second &lt;= 127;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,1 @@
+(no failsafe reports — all tests via Surefire)

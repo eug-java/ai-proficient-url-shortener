@@ -1,0 +1,8 @@
+target/surefire-reports/com.example.shortener.UrlShortenerIntegrationTest.txt:Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 12.03 s -- in com.example.shortener.UrlShortenerIntegrationTest
+target/surefire-reports/com.example.shortener.api.GlobalExceptionHandlerTest.txt:Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.024 s -- in com.example.shortener.api.GlobalExceptionHandlerTest
+target/surefire-reports/com.example.shortener.AliasExhaustionIntegrationTest.txt:Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.525 s -- in com.example.shortener.AliasExhaustionIntegrationTest
+target/surefire-reports/com.example.shortener.AnalyticsFailureIntegrationTest.txt:Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.909 s -- in com.example.shortener.AnalyticsFailureIntegrationTest
+target/surefire-reports/com.example.shortener.RandomAliasCollisionIntegrationTest.txt:Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.685 s -- in com.example.shortener.RandomAliasCollisionIntegrationTest
+target/surefire-reports/com.example.shortener.PrometheusMetricsIntegrationTest.txt:Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.966 s -- in com.example.shortener.PrometheusMetricsIntegrationTest
+target/surefire-reports/com.example.shortener.DomainTests.txt:Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.017 s -- in com.example.shortener.DomainTests
+target/surefire-reports/com.example.shortener.observability.ShortenerMetricsTest.txt:Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.043 s -- in com.example.shortener.observability.ShortenerMetricsTest

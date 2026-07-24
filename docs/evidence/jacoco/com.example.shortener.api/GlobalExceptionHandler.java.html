@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlobalExceptionHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ai-proficient-url-shortener</a> &gt; <a href="index.source.html" class="el_package">com.example.shortener.api</a> &gt; <span class="el_source">GlobalExceptionHandler.java</span></div><h1>GlobalExceptionHandler.java</h1><pre class="source lang-java linenums">package com.example.shortener.api;
+
+import com.example.shortener.domain.DuplicateAliasException;
+import com.example.shortener.domain.ExpiredException;
+import com.example.shortener.domain.InvalidRequestException;
+import com.example.shortener.domain.NotFoundException;
+import com.example.shortener.observability.ShortenerMetrics;
+import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+<span class="fc" id="L24">    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);</span>
+
+    private final ShortenerMetrics metrics;
+
+<span class="fc" id="L28">    public GlobalExceptionHandler(ShortenerMetrics metrics) {</span>
+<span class="fc" id="L29">        this.metrics = metrics;</span>
+<span class="fc" id="L30">    }</span>
+
+    @ExceptionHandler(InvalidRequestException.class)
+    ProblemDetail invalidRequest(InvalidRequestException exception, HttpServletRequest request) {
+<span class="fc" id="L34">        return problem(HttpStatus.BAD_REQUEST, &quot;INVALID_REQUEST&quot;, exception.getMessage(), request);</span>
+    }
+
+    @ExceptionHandler(DuplicateAliasException.class)
+    ProblemDetail duplicateAlias(HttpServletRequest request) {
+<span class="fc" id="L39">        return problem(</span>
+                HttpStatus.CONFLICT,
+                &quot;DUPLICATE_ALIAS&quot;,
+                &quot;Custom alias is already in use&quot;,
+                request
+        );
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    ProblemDetail notFound(HttpServletRequest request) {
+<span class="fc" id="L49">        return problem(</span>
+                HttpStatus.NOT_FOUND,
+                &quot;SHORT_URL_NOT_FOUND&quot;,
+                &quot;Short URL was not found&quot;,
+                request
+        );
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ProblemDetail missingResource(HttpServletRequest request) {
+        // Not a business error — avoid inflating shortener.errors.total with probe noise.
+<span class="fc" id="L60">        return problemDetail(</span>
+                HttpStatus.NOT_FOUND,
+                &quot;RESOURCE_NOT_FOUND&quot;,
+                &quot;Resource was not found&quot;,
+                request
+        );
+    }
+
+    @ExceptionHandler(ExpiredException.class)
+    ProblemDetail expired(HttpServletRequest request) {
+<span class="fc" id="L70">        return problem(</span>
+                HttpStatus.GONE,
+                &quot;SHORT_URL_EXPIRED&quot;,
+                &quot;Short URL has expired&quot;,
+                request
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ProblemDetail validation(MethodArgumentNotValidException exception, HttpServletRequest request) {
+<span class="fc" id="L80">        ProblemDetail detail = problem(</span>
+                HttpStatus.BAD_REQUEST,
+                &quot;VALIDATION_FAILED&quot;,
+                &quot;Request validation failed&quot;,
+                request
+        );
+<span class="fc" id="L86">        Map&lt;String, String&gt; fieldErrors = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L87">        exception.getBindingResult().getFieldErrors().forEach(error -&gt;</span>
+<span class="fc" id="L88">                fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage())</span>
+        );
+<span class="fc" id="L90">        detail.setProperty(&quot;fieldErrors&quot;, fieldErrors);</span>
+<span class="fc" id="L91">        return detail;</span>
+    }
+
+    @ExceptionHandler(Exception.class)
+    ProblemDetail unexpected(Exception exception, HttpServletRequest request) {
+<span class="fc" id="L96">        log.error(&quot;Unhandled exception&quot;, exception);</span>
+<span class="fc" id="L97">        return problem(</span>
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                &quot;INTERNAL_ERROR&quot;,
+                &quot;An unexpected error occurred&quot;,
+                request
+        );
+    }
+
+    private ProblemDetail problem(
+            HttpStatus status,
+            String code,
+            String detailMessage,
+            HttpServletRequest request
+    ) {
+<span class="fc" id="L111">        metrics.error(code);</span>
+<span class="fc" id="L112">        return problemDetail(status, code, detailMessage, request);</span>
+    }
+
+    private ProblemDetail problemDetail(
+            HttpStatus status,
+            String code,
+            String detailMessage,
+            HttpServletRequest request
+    ) {
+<span class="fc" id="L121">        ProblemDetail detail = ProblemDetail.forStatusAndDetail(status, detailMessage);</span>
+<span class="fc" id="L122">        detail.setTitle(status.getReasonPhrase());</span>
+<span class="fc" id="L123">        detail.setType(URI.create(&quot;urn:problem-type:&quot; + code.toLowerCase().replace('_', '-')));</span>
+<span class="fc" id="L124">        detail.setInstance(URI.create(request.getRequestURI()));</span>
+<span class="fc" id="L125">        detail.setProperty(&quot;code&quot;, code);</span>
+<span class="fc" id="L126">        return detail;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

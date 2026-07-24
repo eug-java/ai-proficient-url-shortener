@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UrlController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ai-proficient-url-shortener</a> &gt; <a href="index.source.html" class="el_package">com.example.shortener.api</a> &gt; <span class="el_source">UrlController.java</span></div><h1>UrlController.java</h1><pre class="source lang-java linenums">package com.example.shortener.api;
+
+import com.example.shortener.application.AnalyticsView;
+import com.example.shortener.application.CreateUrlCommand;
+import com.example.shortener.application.CreateUrlResult;
+import com.example.shortener.application.UrlDetails;
+import com.example.shortener.application.UrlService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.net.URI;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@Tag(name = &quot;URL Shortener&quot;, description = &quot;URL creation, redirection, and analytics&quot;)
+public class UrlController {
+
+    private static final String SHORT_CODE = &quot;[A-Za-z0-9_-]{3,32}&quot;;
+
+    private final UrlService service;
+
+<span class="fc" id="L29">    public UrlController(UrlService service) {</span>
+<span class="fc" id="L30">        this.service = service;</span>
+<span class="fc" id="L31">    }</span>
+
+    @PostMapping(&quot;/api/v1/urls&quot;)
+    @Operation(summary = &quot;Create a short URL&quot;)
+    @ApiResponse(responseCode = &quot;201&quot;, description = &quot;Short URL created&quot;)
+    @ApiResponse(responseCode = &quot;400&quot;, description = &quot;Invalid request&quot;)
+    @ApiResponse(responseCode = &quot;409&quot;, description = &quot;Custom alias already exists&quot;)
+    public ResponseEntity&lt;CreateUrlResponse&gt; create(@Valid @RequestBody CreateUrlRequest request) {
+<span class="fc" id="L39">        CreateUrlResult result = service.create(new CreateUrlCommand(</span>
+<span class="fc" id="L40">                request.originalUrl(),</span>
+<span class="fc" id="L41">                request.customAlias(),</span>
+<span class="fc" id="L42">                request.expiresAt()</span>
+        ));
+<span class="fc" id="L44">        CreateUrlResponse response = toCreateResponse(result);</span>
+<span class="fc" id="L45">        return ResponseEntity.created(URI.create(&quot;/api/v1/urls/&quot; + response.shortCode())).body(response);</span>
+    }
+
+    @GetMapping(&quot;/api/v1/urls/{shortCode:&quot; + SHORT_CODE + &quot;}&quot;)
+    @Operation(summary = &quot;Get short URL details&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Short URL details returned&quot;)
+    @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Short code not found&quot;)
+    public UrlDetailsResponse get(@PathVariable String shortCode) {
+<span class="fc" id="L53">        return toDetailsResponse(service.get(shortCode));</span>
+    }
+
+    @GetMapping(&quot;/{shortCode:&quot; + SHORT_CODE + &quot;}&quot;)
+    @Operation(summary = &quot;Redirect to the original URL&quot;)
+    @ApiResponse(responseCode = &quot;302&quot;, description = &quot;Redirect to original URL&quot;)
+    @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Short code not found&quot;)
+    @ApiResponse(responseCode = &quot;410&quot;, description = &quot;Short URL expired&quot;)
+    public ResponseEntity&lt;Void&gt; redirect(@PathVariable String shortCode) {
+<span class="fc" id="L62">        return ResponseEntity.status(HttpStatus.FOUND)</span>
+<span class="fc" id="L63">                .location(URI.create(service.resolve(shortCode)))</span>
+<span class="fc" id="L64">                .build();</span>
+    }
+
+    @GetMapping(&quot;/api/v1/urls/{shortCode:&quot; + SHORT_CODE + &quot;}/analytics&quot;)
+    @Operation(summary = &quot;Get click analytics&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Analytics returned&quot;)
+    @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Short code not found&quot;)
+    public AnalyticsResponse analytics(@PathVariable String shortCode) {
+<span class="fc" id="L72">        return toAnalyticsResponse(service.analytics(shortCode));</span>
+    }
+
+    private static CreateUrlResponse toCreateResponse(CreateUrlResult result) {
+<span class="fc" id="L76">        return new CreateUrlResponse(</span>
+<span class="fc" id="L77">                result.id(),</span>
+<span class="fc" id="L78">                result.shortCode(),</span>
+<span class="fc" id="L79">                result.shortUrl(),</span>
+<span class="fc" id="L80">                result.originalUrl(),</span>
+<span class="fc" id="L81">                result.expiresAt(),</span>
+<span class="fc" id="L82">                result.createdAt()</span>
+        );
+    }
+
+    private static UrlDetailsResponse toDetailsResponse(UrlDetails details) {
+<span class="fc" id="L87">        return new UrlDetailsResponse(</span>
+<span class="fc" id="L88">                details.id(),</span>
+<span class="fc" id="L89">                details.shortCode(),</span>
+<span class="fc" id="L90">                details.shortUrl(),</span>
+<span class="fc" id="L91">                details.originalUrl(),</span>
+<span class="fc" id="L92">                details.expiresAt(),</span>
+<span class="fc" id="L93">                details.createdAt(),</span>
+<span class="fc" id="L94">                details.totalClicks(),</span>
+<span class="fc" id="L95">                details.lastAccessedAt()</span>
+        );
+    }
+
+    private static AnalyticsResponse toAnalyticsResponse(AnalyticsView view) {
+<span class="fc" id="L100">        return new AnalyticsResponse(</span>
+<span class="fc" id="L101">                view.shortCode(),</span>
+<span class="fc" id="L102">                view.totalClicks(),</span>
+<span class="fc" id="L103">                view.lastAccessedAt(),</span>
+<span class="fc" id="L104">                view.expiresAt()</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
