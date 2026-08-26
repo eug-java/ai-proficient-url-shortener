@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { type Org, useApi } from "./api";
+import { pickDefaultOrgId } from "./orgHelpers";
 import { slugify } from "./slugify";
 
 type OrgState = {
@@ -35,7 +36,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     try {
       const list = await api.get<Org[]>("/api/v1/orgs");
       setOrgs(list);
-      setOrgId((current) => current ?? list[0]?.id);
+      setOrgId((current) => pickDefaultOrgId(list, current));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load orgs");
     } finally {

@@ -27,6 +27,8 @@ app:
   analytics.ip-hash-pepper: test-pepper
   cors.allowed-origins: http://localhost:3000
   keycloak.admin.enabled: false
+  webhooks.dispatch-enabled: false
+  custom-domains.allow-skip-dns-verify: true
 
 management:
   endpoints.web.exposure.include: health

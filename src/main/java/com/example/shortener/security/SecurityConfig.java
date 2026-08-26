@@ -1,5 +1,7 @@
 package com.example.shortener.security;
 
+import com.example.shortener.integration.ApiKeyAuthenticationFilter;
+import com.example.shortener.integration.IntegrationService;
 import java.util.ArrayList;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -19,18 +21,27 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.example.shortener.integration.ApiKeyAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
 
     @Bean
+    ApiKeyAuthenticationFilter apiKeyAuthenticationFilter(IntegrationService integrationService) {
+        return new ApiKeyAuthenticationFilter(integrationService);
+    }
+
+    @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
+            ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
             @Value("${app.security.enabled:true}") boolean enabled
     ) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(apiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         if (!enabled) {
             return http.authorizeHttpRequests(a -> a.anyRequest().permitAll()).build();

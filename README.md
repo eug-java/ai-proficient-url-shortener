@@ -1,13 +1,15 @@
 # AI-Proficient URL Shortener
 
-Production URL shortener (Java 21 / Spring Boot 3.4) with Keycloak auth, org RBAC, Redis, Kafka click pipeline, rich analytics, and a management dashboard.
+Production URL shortener (Java 21 / Spring Boot 3.5) with Keycloak auth, org RBAC, Redis, Kafka click pipeline, rich analytics, and a management dashboard.
 
 ## Product features
 
 - Organizations + roles (`OWNER` / `ADMIN` / `MEMBER` / `VIEWER`)
-- Keycloak OIDC (resource server JWT)
+- Keycloak OIDC (resource server JWT) + org API keys for machines
 - Org-scoped link lifecycle (create / list / update / disable / delete)
 - Public `302` redirect with transactional outbox → Kafka (or inline mode for tests)
+- Custom vanity domains (TXT verify, Host-based routing)
+- Append-only org audit log + HMAC outbound webhooks for other services
 - Analytics: summary, timeseries, referrer/UA/geo/device breakdowns, CSV export
 - Redis redirect cache + API rate limiting
 - Dashboard SPA (`dashboard/`)
@@ -28,7 +30,7 @@ docker compose up --build
 
 > If host ports 8080/3000 are free, change compose mappings back to `8080:8080` / `3000:80` and rebuild the dashboard image.
 
-Docs: `docs/13-production-scope-lock.md`, `docs/15-api-reference.md`, `docs/05-testing.md`.
+Docs: `docs/13-production-scope-lock.md`, `docs/15-api-reference.md`, `docs/17-integrations.md`, `docs/05-testing.md`.
 
 ## Local API without full Compose
 

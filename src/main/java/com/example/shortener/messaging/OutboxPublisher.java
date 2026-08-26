@@ -41,6 +41,9 @@ public class OutboxPublisher {
             return;
         }
         for (OutboxEvent event : repository.findTop100ByPublishedAtIsNullOrderByCreatedAt()) {
+            if (!"LinkClicked".equals(event.getEventType())) {
+                continue;
+            }
             ClickMessage message = json.readValue(event.getPayload(), ClickMessage.class);
             kafka.send(topic, message.shortCode(), message).get();
             event.published(clock.instant());

@@ -55,6 +55,11 @@ app:
   retention.enabled: ${RETENTION_ENABLED:true}
   geo:
     maxmind-db: ${GEO_MAXMIND_DB:}
+  custom-domains:
+    allow-skip-dns-verify: ${CUSTOM_DOMAIN_SKIP_DNS:false}
+  webhooks:
+    dispatch-enabled: ${WEBHOOK_DISPATCH_ENABLED:true}
+    poll-ms: ${WEBHOOK_POLL_MS:2000}
   keycloak.admin:
     enabled: ${KEYCLOAK_ADMIN_ENABLED:false}
     server-url: ${KEYCLOAK_ADMIN_URL:http://localhost:8081}
