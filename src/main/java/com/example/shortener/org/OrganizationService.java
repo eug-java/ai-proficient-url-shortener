@@ -2,6 +2,7 @@ package com.example.shortener.org;
 
 import com.example.shortener.domain.InvalidRequestException;
 import com.example.shortener.security.CurrentUser;
+import com.example.shortener.security.KeycloakUserDirectory;
 import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
@@ -26,17 +27,20 @@ public class OrganizationService {
     private final OrganizationRepository organizations;
     private final OrganizationMemberRepository members;
     private final OrgAccessService access;
+    private final KeycloakUserDirectory userDirectory;
     private final Clock clock;
 
     public OrganizationService(
             OrganizationRepository organizations,
             OrganizationMemberRepository members,
             OrgAccessService access,
+            KeycloakUserDirectory userDirectory,
             Clock clock
     ) {
         this.organizations = organizations;
         this.members = members;
         this.access = access;
+        this.userDirectory = userDirectory;
         this.clock = clock;
     }
 
@@ -92,6 +96,21 @@ public class OrganizationService {
     }
 
     @Transactional
+    public MemberView inviteByEmail(
+            UUID orgId,
+            String actor,
+            String email,
+            OrganizationMember.Role role
+    ) {
+        access.requireManage(orgId, actor);
+        if (role == OrganizationMember.Role.OWNER) {
+            throw new InvalidRequestException("Cannot assign OWNER via invite; transfer ownership separately");
+        }
+        KeycloakUserDirectory.DirectoryUser user = userDirectory.findOrInviteByEmail(email);
+        return addResolved(orgId, user.sub(), user.email(), user.displayName(), role);
+    }
+
+    @Transactional
     public MemberView add(
             UUID orgId,
             String actor,
@@ -103,6 +122,19 @@ public class OrganizationService {
         access.requireManage(orgId, actor);
         if (role == OrganizationMember.Role.OWNER) {
             throw new InvalidRequestException("Cannot assign OWNER via invite; transfer ownership separately");
+        }
+        return addResolved(orgId, sub, email, name, role);
+    }
+
+    private MemberView addResolved(
+            UUID orgId,
+            String sub,
+            String email,
+            String name,
+            OrganizationMember.Role role
+    ) {
+        if (members.findByOrganizationIdAndUserSub(orgId, sub).isPresent()) {
+            throw new InvalidRequestException("User is already a member of this organization");
         }
         OrganizationMember saved = members.save(new OrganizationMember(
                 UUID.randomUUID(),

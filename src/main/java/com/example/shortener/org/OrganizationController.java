@@ -3,6 +3,7 @@ package com.example.shortener.org;
 import com.example.shortener.security.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import java.net.URI;
 import java.util.List;
@@ -27,6 +28,11 @@ public class OrganizationController {
             @NotBlank String userSub,
             String email,
             String displayName,
+            OrganizationMember.Role role
+    ) {}
+
+    public record InviteMember(
+            @NotBlank @Email String email,
             OrganizationMember.Role role
     ) {}
 
@@ -81,6 +87,21 @@ public class OrganizationController {
                 body.userSub(),
                 body.email(),
                 body.displayName(),
+                body.role() == null ? OrganizationMember.Role.MEMBER : body.role()
+        );
+    }
+
+    @PostMapping("/{orgId}/invites")
+    OrganizationService.MemberView invite(
+            @PathVariable UUID orgId,
+            @Valid @RequestBody InviteMember body,
+            Authentication auth,
+            HttpServletRequest req
+    ) {
+        return service.inviteByEmail(
+                orgId,
+                currentUser.require(auth, req).sub(),
+                body.email(),
                 body.role() == null ? OrganizationMember.Role.MEMBER : body.role()
         );
     }

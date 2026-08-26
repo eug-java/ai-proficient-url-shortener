@@ -53,6 +53,15 @@ app:
     requests: ${RATE_LIMIT_REQUESTS:60}
     window: ${RATE_LIMIT_WINDOW:PT1M}
   retention.enabled: ${RETENTION_ENABLED:true}
+  keycloak.admin:
+    enabled: ${KEYCLOAK_ADMIN_ENABLED:false}
+    server-url: ${KEYCLOAK_ADMIN_URL:http://localhost:8081}
+    realm: ${KEYCLOAK_REALM:shortener}
+    client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:shortener-admin}
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:}
+    invite-client-id: ${KEYCLOAK_INVITE_CLIENT_ID:shortener-dashboard}
+    invite-redirect-uri: ${KEYCLOAK_INVITE_REDIRECT_URI:http://localhost:3001/}
+    send-invite-email: ${KEYCLOAK_SEND_INVITE_EMAIL:true}
 
 management:
   endpoints.web.exposure.include: health

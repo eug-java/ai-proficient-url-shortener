@@ -15,7 +15,6 @@ export function MembersPage() {
   const { orgId } = useOrg();
   const [members, setMembers] = useState<Member[]>([]);
   const [email, setEmail] = useState("");
-  const [userSub, setUserSub] = useState("");
   const [role, setRole] = useState("MEMBER");
   const [error, setError] = useState<string>();
 
@@ -30,20 +29,18 @@ export function MembersPage() {
     );
   }, [orgId]);
 
-  const onAdd = async (e: FormEvent) => {
+  const onInvite = async (e: FormEvent) => {
     e.preventDefault();
     if (!orgId) return;
     try {
-      await api.post(`/api/v1/orgs/${orgId}/members`, {
-        userSub,
-        email: email || null,
+      await api.post(`/api/v1/orgs/${orgId}/invites`, {
+        email,
         role,
       });
-      setUserSub("");
       setEmail("");
       await reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Add failed");
+      setError(err instanceof Error ? err.message : "Invite failed");
     }
   };
 
@@ -66,7 +63,8 @@ export function MembersPage() {
     <div>
       <h1 className="page-title">Members</h1>
       <p className="page-sub">
-        Roles: OWNER, ADMIN, MEMBER, VIEWER. Managing members requires OWNER.
+        Invite by email (Keycloak creates the account). Managing members requires
+        OWNER.
       </p>
       {error ? <p className="error">{error}</p> : null}
       <div className="grid-2">
@@ -113,23 +111,16 @@ export function MembersPage() {
             </tbody>
           </table>
         </div>
-        <form className="card" onSubmit={onAdd}>
-          <h2 style={{ marginTop: 0 }}>Add member</h2>
-          <div className="field">
-            <label htmlFor="sub">Keycloak subject (sub)</label>
-            <input
-              id="sub"
-              value={userSub}
-              onChange={(e) => setUserSub(e.target.value)}
-              required
-            />
-          </div>
+        <form className="card" onSubmit={onInvite}>
+          <h2 style={{ marginTop: 0 }}>Invite by email</h2>
           <div className="field">
             <label htmlFor="email">Email</label>
             <input
               id="email"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </div>
           <div className="field">
@@ -145,7 +136,7 @@ export function MembersPage() {
             </select>
           </div>
           <button className="btn" type="submit">
-            Add
+            Invite
           </button>
         </form>
       </div>

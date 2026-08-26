@@ -143,6 +143,36 @@ class OrgProductIntegrationTest {
     }
 
     @Test
+    void inviteByEmailAddsMemberViaDirectoryStub() {
+        UUID orgId = createOrg("inv-" + UUID.randomUUID().toString().substring(0, 8));
+
+        ResponseEntity<Map> invited = rest.exchange(
+                "/api/v1/orgs/" + orgId + "/invites",
+                HttpMethod.POST,
+                new HttpEntity<>(
+                        Map.of("email", "teammate@example.com", "role", "MEMBER"),
+                        userHeaders("owner-1")
+                ),
+                Map.class
+        );
+        assertThat(invited.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(invited.getBody().get("email")).isEqualTo("teammate@example.com");
+        assertThat(invited.getBody().get("role")).isEqualTo("MEMBER");
+        assertThat(invited.getBody().get("userSub")).isNotNull();
+
+        ResponseEntity<Map> duplicate = rest.exchange(
+                "/api/v1/orgs/" + orgId + "/invites",
+                HttpMethod.POST,
+                new HttpEntity<>(
+                        Map.of("email", "teammate@example.com", "role", "VIEWER"),
+                        userHeaders("owner-1")
+                ),
+                Map.class
+        );
+        assertThat(duplicate.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
     void viewerCannotCreateLinks() {
         UUID orgId = createOrg("view-" + UUID.randomUUID().toString().substring(0, 8));
 

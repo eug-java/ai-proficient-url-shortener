@@ -18,7 +18,8 @@ Authenticated management:
 | POST | `/api/v1/orgs` | any authenticated → becomes OWNER |
 | GET | `/api/v1/orgs` | memberships (includes `role`) |
 | GET | `/api/v1/orgs/{orgId}/members` | MEMBER+ |
-| POST | `/api/v1/orgs/{orgId}/members` | OWNER |
+| POST | `/api/v1/orgs/{orgId}/members` | OWNER (add by known Keycloak `userSub`) |
+| POST | `/api/v1/orgs/{orgId}/invites` | OWNER (email invite via Keycloak Admin; creates user if missing) |
 | POST | `/api/v1/orgs/{orgId}/transfer-ownership` | OWNER → new OWNER |
 | PATCH | `/api/v1/orgs/{orgId}/members/{memberId}` | OWNER (cannot demote last OWNER) |
 | POST | `/api/v1/orgs/{orgId}/urls` | OWNER/ADMIN/MEMBER |

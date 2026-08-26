@@ -85,6 +85,12 @@ services:
       CORS_ALLOWED_ORIGINS: http://localhost:3001,http://localhost:3000
       IP_HASH_PEPPER: ${IP_HASH_PEPPER:-compose-dev-pepper}
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,prometheus
+      KEYCLOAK_ADMIN_ENABLED: "true"
+      KEYCLOAK_ADMIN_URL: http://keycloak:8081
+      KEYCLOAK_ADMIN_CLIENT_ID: shortener-admin
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-shortener-admin-secret}
+      KEYCLOAK_INVITE_REDIRECT_URI: http://localhost:3001/
+      KEYCLOAK_SEND_INVITE_EMAIL: "false"
     ports: ["8088:8080"]
     depends_on:
       postgres:
