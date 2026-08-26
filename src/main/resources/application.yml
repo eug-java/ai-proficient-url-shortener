@@ -53,6 +53,8 @@ app:
     requests: ${RATE_LIMIT_REQUESTS:60}
     window: ${RATE_LIMIT_WINDOW:PT1M}
   retention.enabled: ${RETENTION_ENABLED:true}
+  geo:
+    maxmind-db: ${GEO_MAXMIND_DB:}
   keycloak.admin:
     enabled: ${KEYCLOAK_ADMIN_ENABLED:false}
     server-url: ${KEYCLOAK_ADMIN_URL:http://localhost:8081}

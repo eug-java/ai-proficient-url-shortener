@@ -1,20 +1,21 @@
 package com.example.shortener.geo;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.InetAddress;
 import java.util.Optional;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Geo resolution for analytics. Prefer edge headers; optional MaxMind path reserved for later.
+ * Resolves ISO-3166-1 alpha-2 country for analytics.
+ * Prefer trusted edge headers; fall back to optional MaxMind Country DB.
  */
 @Component
 public class GeoCountryResolver {
 
-    private final String maxmindPath;
+    private final MaxMindCountryLookup maxMindLookup;
 
-    public GeoCountryResolver(@Value("${app.geo.maxmind-db:}") String maxmindPath) {
-        this.maxmindPath = maxmindPath == null ? "" : maxmindPath.trim();
+    public GeoCountryResolver(MaxMindCountryLookup maxMindLookup) {
+        this.maxMindLookup = maxMindLookup == null ? address -> Optional.empty() : maxMindLookup;
     }
 
     public Optional<String> resolve(HttpServletRequest request) {
@@ -25,10 +26,14 @@ public class GeoCountryResolver {
         if (header != null && header.matches("(?i)[A-Z]{2}")) {
             return Optional.of(header.toUpperCase());
         }
-        // MaxMind file integration can be wired when app.geo.maxmind-db is set.
-        if (!maxmindPath.isBlank()) {
-            return Optional.empty();
-        }
-        return Optional.empty();
+
+        return ClientIpResolver.resolve(request)
+                .flatMap(ip -> {
+                    try {
+                        return maxMindLookup.countryIso(InetAddress.getByName(ip));
+                    } catch (Exception ignored) {
+                        return Optional.empty();
+                    }
+                });
     }
 }

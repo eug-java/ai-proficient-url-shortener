@@ -91,7 +91,10 @@ services:
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-shortener-admin-secret}
       KEYCLOAK_INVITE_REDIRECT_URI: http://localhost:3001/
       KEYCLOAK_SEND_INVITE_EMAIL: "false"
+      GEO_MAXMIND_DB: ${GEO_MAXMIND_DB:-/data/GeoLite2-Country.mmdb}
     ports: ["8088:8080"]
+    volumes:
+      - ${GEO_MAXMIND_HOST_PATH:-./deploy/geoip}:/data:ro
     depends_on:
       postgres:
         condition: service_healthy
