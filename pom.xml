@@ -112,6 +112,11 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-test</artifactId>
       <scope>test</scope>
@@ -149,13 +154,11 @@
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>${jacoco.version}</version>
         <configuration>
-          <!-- Infra not exercised under test profile (inline messaging, no Redis). Covered by manual/prodlike smoke. -->
+          <!-- Hard-to-exercise wiring; Redis/Kafka/cache/rate-limit covered by pipeline IT. -->
           <excludes>
-            <exclude>com/example/shortener/messaging/OutboxPublisher.class</exclude>
-            <exclude>com/example/shortener/messaging/ClickEventConsumer.class</exclude>
             <exclude>com/example/shortener/messaging/ConsumerInbox.class</exclude>
-            <exclude>com/example/shortener/ratelimit/**</exclude>
-            <exclude>com/example/shortener/cache/**</exclude>
+            <exclude>com/example/shortener/geo/GeoConfiguration.class</exclude>
+            <exclude>com/example/shortener/security/SecurityConfig.class</exclude>
             <exclude>com/example/shortener/application/RetentionJob.class</exclude>
             <exclude>com/example/shortener/config/OpenApiConfig.class</exclude>
             <exclude>com/example/shortener/UrlShortenerApplication.class</exclude>

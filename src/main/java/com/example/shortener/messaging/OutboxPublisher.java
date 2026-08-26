@@ -15,14 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutboxPublisher {
 
     private final OutboxEventRepository repository;
-    private final KafkaTemplate<String, Object> kafka;
+    private final KafkaTemplate<String, ClickMessage> kafka;
     private final ObjectMapper json;
     private final Clock clock;
     private final String topic;
 
     public OutboxPublisher(
             OutboxEventRepository repository,
-            ObjectProvider<KafkaTemplate<String, Object>> kafka,
+            ObjectProvider<KafkaTemplate<String, ClickMessage>> kafka,
             ObjectMapper json,
             Clock clock,
             @Value("${app.kafka.clicks-topic:shortener.clicks.v1}") String topic
