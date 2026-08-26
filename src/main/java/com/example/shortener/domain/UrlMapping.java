@@ -11,6 +11,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "url_mapping")
 public class UrlMapping {
+    public enum Status { ACTIVE, DISABLED, DELETED }
 
     @Id
     private UUID id;
@@ -32,6 +33,13 @@ public class UrlMapping {
 
     @Column(name = "last_accessed_at")
     private Instant lastAccessedAt;
+    @Column(name = "organization_id") private UUID organizationId;
+    @Column(name = "created_by_sub", length = 128) private String createdBySub;
+    @Column(length = 200) private String title;
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(nullable = false, length = 16) private Status status = Status.ACTIVE;
+    @Column(name = "updated_at") private Instant updatedAt;
+    @Column(name = "disabled_at") private Instant disabledAt;
 
     /**
      * Reserved for entity-based updates. Click analytics use a bulk JPQL increment
@@ -57,6 +65,13 @@ public class UrlMapping {
         this.originalUrl = originalUrl;
         this.expiresAt = expiresAt;
         this.createdAt = createdAt;
+    }
+
+    public UrlMapping(UUID id, UUID organizationId, String createdBySub, String shortCode,
+                      String originalUrl, String title, Instant expiresAt, Instant createdAt) {
+        this(id, shortCode, originalUrl, expiresAt, createdAt);
+        this.organizationId=organizationId; this.createdBySub=createdBySub; this.title=title;
+        this.updatedAt=createdAt;
     }
 
     public boolean isExpired(Instant now) {
@@ -90,4 +105,12 @@ public class UrlMapping {
     public Instant getLastAccessedAt() {
         return lastAccessedAt;
     }
+    public UUID getOrganizationId(){return organizationId;} public String getCreatedBySub(){return createdBySub;}
+    public String getTitle(){return title;} public Status getStatus(){return status;}
+    public Instant getUpdatedAt(){return updatedAt;} public Instant getDisabledAt(){return disabledAt;}
+    public void update(String originalUrl, String title, Instant expiresAt, Instant now) {
+        this.originalUrl=originalUrl; this.title=title; this.expiresAt=expiresAt; this.updatedAt=now;
+    }
+    public void disable(Instant now){this.status=Status.DISABLED; this.disabledAt=now; this.updatedAt=now;}
+    public void delete(Instant now){this.status=Status.DELETED; this.updatedAt=now;}
 }

@@ -1,0 +1,24 @@
+groups:
+  - name: url-shortener
+    rules:
+      - alert: UrlShortenerRedirectErrors
+        expr: rate(shortener_errors_total{code="INTERNAL_ERROR"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redirect/internal error rate elevated
+      - alert: UrlShortenerAnalyticsFailures
+        expr: rate(shortener_analytics_updates_total{result="failure"}[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Analytics update failures elevated
+      - alert: UrlShortenerDown
+        expr: up{job="url-shortener"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: URL shortener scrape target is down

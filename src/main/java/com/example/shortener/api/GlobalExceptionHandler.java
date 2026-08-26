@@ -91,6 +91,19 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    ProblemDetail accessDenied(
+            org.springframework.security.access.AccessDeniedException exception,
+            HttpServletRequest request
+    ) {
+        return problem(
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED",
+                exception.getMessage() == null ? "Access denied" : exception.getMessage(),
+                request
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     ProblemDetail unexpected(Exception exception, HttpServletRequest request) {
         log.error("Unhandled exception", exception);

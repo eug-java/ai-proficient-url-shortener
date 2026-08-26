@@ -1,114 +1,50 @@
 # AI-Proficient URL Shortener
 
-Production-oriented URL shortener built with Java 21 and Spring Boot. The repository also contains an AI-assisted engineering evidence pack that documents requirements, architecture, prompts, human review, testing, security decisions, and rejected AI suggestions.
+Production URL shortener (Java 21 / Spring Boot 3.4) with Keycloak auth, org RBAC, Redis, Kafka click pipeline, rich analytics, and a management dashboard.
 
-## Features
+## Product features
 
-- Create short URLs with an optional custom alias and expiration time
-- Retrievable create `Location` via `GET /api/v1/urls/{shortCode}`
-- HTTP `302 Found` redirect to the original URL
-- `404 Not Found` for unknown codes and `410 Gone` for expired links
-- Click count and last-access timestamp
-- PostgreSQL persistence with Flyway migrations
-- RFC 9457 `ProblemDetail` error responses
-- OpenAPI 3 specification and Swagger UI
-- Actuator health by default; optional Prometheus metrics
-- Request ID correlation (`X-Request-Id`) in responses and logs
-- Unit and PostgreSQL integration tests with Testcontainers
-- GitHub Actions verification and multi-stage Docker image build
+- Organizations + roles (`OWNER` / `ADMIN` / `MEMBER` / `VIEWER`)
+- Keycloak OIDC (resource server JWT)
+- Org-scoped link lifecycle (create / list / update / disable / delete)
+- Public `302` redirect with transactional outbox → Kafka (or inline mode for tests)
+- Analytics: summary, timeseries, referrer/UA/geo/device breakdowns, CSV export
+- Redis redirect cache + API rate limiting
+- Dashboard SPA (`dashboard/`)
+- PostgreSQL + Flyway, Actuator, Prometheus, ProblemDetail errors
 
-## Technology stack
-
-- Java 21 (JDK 21 is required; Maven rejects other major versions)
-- Spring Boot 3.4
-- Spring MVC, Validation, Data JPA, Actuator
-- PostgreSQL 17 and Flyway
-- Micrometer and Prometheus
-- springdoc-openapi
-- JUnit 5, AssertJ, MockMvc, Testcontainers
-- Maven, Docker, Docker Compose, GitHub Actions
-
-## Quick start with Docker
+## Quick start (prod-like Compose)
 
 ```bash
 docker compose up --build
 ```
 
-The image is built with a multi-stage Dockerfile (Maven build inside Docker). Compose enables Prometheus scraping for local demos.
+| Service | URL |
+|---|---|
+| API | http://localhost:8088 (mapped; container listens on 8080) |
+| Dashboard | http://localhost:3001 |
+| Keycloak | http://localhost:8081 (admin/admin) |
+| Demo user | `demo` / `demo` (realm `shortener`) |
 
-Application: `http://localhost:8080`
+> If host ports 8080/3000 are free, change compose mappings back to `8080:8080` / `3000:80` and rebuild the dashboard image.
 
-Health: `http://localhost:8080/actuator/health`
+Docs: `docs/13-production-scope-lock.md`, `docs/15-api-reference.md`, `docs/05-testing.md`.
 
-Prometheus (Compose only): `http://localhost:8080/actuator/prometheus`
-
-## Swagger / OpenAPI
-
-Interactive Swagger UI:
-
-```text
-http://localhost:8080/swagger-ui.html
-```
-
-OpenAPI specification in JSON format:
-
-```text
-http://localhost:8080/v3/api-docs
-```
-
-The Swagger UI can be used to inspect and execute all public API operations directly from the browser.
-
-Stop the environment:
+## Local API without full Compose
 
 ```bash
-docker compose down
+docker compose up -d postgres redis kafka keycloak
+./mvnw spring-boot:run -Dspring-boot.run.profiles=prodlike
+cd dashboard && npm install && npm run dev
 ```
 
-Remove the database volume as well:
-
-```bash
-docker compose down -v
-```
-
-## Spring profiles
-
-| Profile | When | Swagger / OpenAPI | Actuator |
-|---|---|---|---|
-| `local` (default) | laptop / Docker Compose | enabled | `health,prometheus` (overridable) |
-| `test` | `mvn verify` / Testcontainers | enabled | `health` (tests may opt into prometheus) |
-| `prod` | production image default | disabled | `health` only |
-
-Activate explicitly:
-
-```bash
-# local (also the default when no profile is set)
-mvn spring-boot:run
-
-# production-style
-SPRING_PROFILES_ACTIVE=prod \
-  DB_URL=jdbc:postgresql://db:5432/shortener \
-  DB_USERNAME=shortener \
-  DB_PASSWORD=... \
-  BASE_URL=https://short.example \
-  java -jar app.jar
-```
-
-Docker Compose sets `SPRING_PROFILES_ACTIVE=local`. The image defaults to `prod`.
-
-## Local development
-
-Start PostgreSQL:
-
-```bash
-docker compose up -d postgres
-```
-
-Run tests and start the application:
+## Tests
 
 ```bash
 ./mvnw clean verify
-./mvnw spring-boot:run
 ```
+
+---
 
 ## API examples
 

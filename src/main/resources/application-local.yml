@@ -1,9 +1,23 @@
-# Local development and Docker Compose demos.
+# Local development defaults (infra on localhost).
 spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/shortener}
     username: ${DB_USERNAME:shortener}
     password: ${DB_PASSWORD:shortener}
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+  kafka.bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+app:
+  security:
+    enabled: ${SECURITY_ENABLED:true}
+    jwt:
+      issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8081/realms/shortener}
+      jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8081/realms/shortener/protocol/openid-connect/certs}
+  cache.enabled: ${CACHE_ENABLED:true}
+  messaging.mode: ${MESSAGING_MODE:kafka}
+  legacy-unscoped-api.enabled: ${LEGACY_UNSCOPED_API:false}
 
 management:
   endpoints.web.exposure.include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,prometheus}

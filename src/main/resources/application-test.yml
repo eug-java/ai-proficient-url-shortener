@@ -4,6 +4,28 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/shortener}
     username: ${DB_USERNAME:shortener}
     password: ${DB_PASSWORD:shortener}
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+  kafka:
+    listener:
+      auto-startup: false
+
+app:
+  security:
+    enabled: false
+    jwt:
+      issuer-uri: http://localhost:8081/realms/shortener
+      jwk-set-uri: http://localhost:8081/realms/shortener/protocol/openid-connect/certs
+  cache.enabled: false
+  messaging.mode: inline
+  rate-limit.enabled: false
+  retention.enabled: false
+  legacy-unscoped-api.enabled: true
+  analytics.ip-hash-pepper: test-pepper
+  cors.allowed-origins: http://localhost:3000
 
 management:
   endpoints.web.exposure.include: health

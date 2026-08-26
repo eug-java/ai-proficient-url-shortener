@@ -83,7 +83,7 @@ public class UrlPolicy {
         return value;
     }
 
-    private void assertHostAllowed(String host) {
+    public void assertHostAllowed(String host) {
         String normalized = host.toLowerCase(Locale.ROOT);
         if (normalized.endsWith(".")) {
             normalized = normalized.substring(0, normalized.length() - 1);
