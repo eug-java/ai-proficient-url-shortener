@@ -33,6 +33,12 @@ public class UrlPolicy {
     private static final int MIN_ALIAS_LENGTH = 3;
     private static final int MAX_ALIAS_LENGTH = 32;
 
+    private final HostAddressResolver hostAddressResolver;
+
+    public UrlPolicy(HostAddressResolver hostAddressResolver) {
+        this.hostAddressResolver = hostAddressResolver;
+    }
+
     public String validateUrl(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new InvalidRequestException("URL must not be blank");
@@ -83,7 +89,7 @@ public class UrlPolicy {
         return value;
     }
 
-    private void assertHostAllowed(String host) {
+    public void assertHostAllowed(String host) {
         String normalized = host.toLowerCase(Locale.ROOT);
         if (normalized.endsWith(".")) {
             normalized = normalized.substring(0, normalized.length() - 1);
@@ -93,7 +99,7 @@ public class UrlPolicy {
         }
 
         try {
-            InetAddress[] addresses = InetAddress.getAllByName(normalized);
+            InetAddress[] addresses = hostAddressResolver.resolveAll(normalized);
             for (InetAddress address : addresses) {
                 if (isBlockedAddress(address)) {
                     throw new InvalidRequestException("URL host is not allowed");

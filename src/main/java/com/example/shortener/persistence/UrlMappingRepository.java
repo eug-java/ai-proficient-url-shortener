@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 public interface UrlMappingRepository extends JpaRepository<UrlMapping, UUID> {
 
     Optional<UrlMapping> findByShortCode(String shortCode);
+    Optional<UrlMapping> findByOrganizationIdAndShortCode(UUID organizationId, String shortCode);
+    java.util.List<UrlMapping> findAllByOrganizationIdAndStatusNotOrderByCreatedAtDesc(
+            UUID organizationId, UrlMapping.Status status);
 
     @Modifying(clearAutomatically = true)
     @Query("""

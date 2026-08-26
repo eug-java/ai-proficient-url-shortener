@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "url-shortener.fullname" . }}
+  labels:
+    {{- include "url-shortener.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "url-shortener.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "url-shortener.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.livenessPath }}
+              port: http
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readinessPath }}
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "url-shortener.fullname" . }}
+  labels:
+    {{- include "url-shortener.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "url-shortener.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "url-shortener.fullname" . }}
+  labels:
+    {{- include "url-shortener.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "url-shortener.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

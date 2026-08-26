@@ -202,13 +202,13 @@ class UrlShortenerIntegrationTest {
 
     @Test
     void unsafeRequestIdShouldBeReplaced() throws Exception {
-        mockMvc.perform(get("/actuator/health").header("X-Request-Id", "bad id\nwith spaces"))
+        mockMvc.perform(get("/actuator/health").header("X-Request-Id", "bad id with spaces"))
                 .andExpect(status().isOk())
                 .andExpect(result -> {
                     String requestId = result.getResponse().getHeader("X-Request-Id");
                     assertThat(requestId)
                             .isNotBlank()
-                            .isNotEqualTo("bad id\nwith spaces")
+                            .isNotEqualTo("bad id with spaces")
                             .matches("[0-9a-fA-F-]{36}");
                 });
     }

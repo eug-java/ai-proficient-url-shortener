@@ -1,0 +1,6 @@
+# Place GeoLite2-Country.mmdb here (not committed).
+# Download from MaxMind (account required): https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+# Compose mounts this directory at /data and sets GEO_MAXMIND_DB=/data/GeoLite2-Country.mmdb
+*
+!.gitignore
+!README.md

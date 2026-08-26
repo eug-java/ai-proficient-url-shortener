@@ -7,6 +7,7 @@ import java.time.Instant;
 public record CreateUrlRequest(
         @NotBlank @Size(max = 2048) String originalUrl,
         @Size(max = 32) String customAlias,
-        Instant expiresAt
+        Instant expiresAt,
+        @Size(max = 200) String title
 ) {
 }

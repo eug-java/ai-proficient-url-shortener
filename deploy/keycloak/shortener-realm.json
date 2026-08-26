@@ -1,0 +1,96 @@
+{
+  "realm": "shortener",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "user", "description": "Default authenticated user" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "shortener-api",
+      "name": "URL Shortener API",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "shortener-api-secret",
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "shortener-admin",
+      "name": "URL Shortener Admin (service account)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "shortener-admin-secret",
+      "clientAuthenticatorType": "client-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "shortener-dashboard",
+      "name": "URL Shortener Dashboard",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*",
+        "http://localhost:3001/*",
+        "http://127.0.0.1:3001/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-shortener-admin",
+      "enabled": true,
+      "serviceAccountClientId": "shortener-admin",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users",
+          "view-realm"
+        ]
+      }
+    },
+    {
+      "username": "demo",
+      "enabled": true,
+      "email": "demo@example.com",
+      "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    }
+  ]
+}

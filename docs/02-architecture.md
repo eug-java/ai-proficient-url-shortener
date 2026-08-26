@@ -1,35 +1,53 @@
-# Architecture
+# Production Architecture
 
-A modular monolith was selected over microservices to maximize delivery quality and testability within the assignment timebox.
+See also: [13-production-scope-lock.md](13-production-scope-lock.md).
 
-```text
-API (controllers, HTTP DTOs, exception mapping)
-  -> Application (UrlService, commands/results, writers)
-  -> Domain (UrlPolicy, UrlMapping, AliasGenerator, domain exceptions)
-  -> Persistence (Spring Data JPA)
-  -> PostgreSQL
-```
+## Components
 
-Key choices:
-- PostgreSQL unique constraint is authoritative for aliases.
-- HTTP DTOs stay in the API package; application uses its own command/result types.
-- Domain exceptions are independent of the web layer.
-- Random Base62 codes use `SecureRandom`.
-- HTTP 302 avoids permanent client caching.
-- Analytics is best effort; production evolution is asynchronous events.
-- Module boundaries allow later extraction into services.
-- Spring profiles separate concerns: `local` (demo), `test` (CI), `prod` (Swagger off, health-only Actuator, required DB env vars).
+| Component | Role |
+|---|---|
+| `app` | Spring Boot 3.4 API + redirect + outbox publisher + Kafka consumer |
+| `postgres` | Source of truth: orgs, memberships, links, outbox, click_events, rollups |
+| `redis` | Redirect hot cache + rate-limit counters |
+| `kafka` | Durable click stream between redirect path and analytics writers |
+| `keycloak` | OIDC IdP (realm `shortener`) |
+| `dashboard` | SPA management UI (Vite/React) |
 
-## Collision-safe write path
+## Request paths
 
-`UrlService` validates input and chooses either the custom alias or an alias from `AliasGenerator`. Persistence is delegated to `UrlMappingWriter`, which performs each insert in a `REQUIRES_NEW` transaction.
+### Public
+- `GET /{shortCode}` → cache miss → Postgres → 302; enqueue click via **transactional outbox**
 
-```text
-UrlService
-  -> AliasGenerator
-  -> UrlMappingWriter (REQUIRES_NEW)
-       -> UrlMappingRepository
-            -> PostgreSQL UNIQUE(short_code)
-```
+### Authenticated (`Authorization: Bearer <access_token>`)
+- Org lifecycle and membership
+- Link CRUD under `/api/v1/orgs/{orgId}/urls`
+- Analytics under `/api/v1/orgs/{orgId}/urls/{code}/analytics*`
 
-A unique-constraint violation (`SQLState 23505`) for a custom alias becomes `DuplicateAliasException`. For a generated alias, the service obtains another value and starts a fresh insert transaction. Non-unique integrity failures are not treated as collisions. This avoids retrying inside a transaction already marked rollback-only.
+## Messaging & idempotency
+
+1. Redirect TX writes `outbox_event` (same TX as optional cache invalidation metadata).
+2. `OutboxPublisher` polls/`FOR UPDATE SKIP LOCKED` and publishes to Kafka topic `shortener.clicks.v1`.
+3. Message key = `shortCode`; headers include `eventId` (UUID).
+4. Consumer writes `consumer_inbox(event_id)` unique; on conflict → skip (at-least-once safe).
+5. Inserts `click_event` and updates rollup tables (`link_stats_daily`, `link_stats_total`).
+
+## Caching
+
+- Redis key `redirect:{shortCode}` → `{originalUrl, expiresAt, orgId, status}` TTL short (e.g. 60s) + explicit invalidate on update/disable.
+- Negative caching optional later.
+
+## Rate limiting
+
+- Redis token bucket / fixed window:
+  - per authenticated principal on mutating APIs
+  - per IP on public redirect (soft) and unauthenticated probes
+
+## Security
+
+- Spring Security OAuth2 Resource Server validates JWT from Keycloak.
+- Org RBAC resolved from `organization_member` using JWT `sub`.
+- Actuator remains health-focused in prod; management endpoints not public.
+
+## API evolution
+
+Current `/api/v1` is the production contract after this uplift (breaking vs assessment API is intentional). Future breaks → `/api/v2`.

@@ -8,6 +8,8 @@ public record UrlDetails(
         String shortCode,
         String shortUrl,
         String originalUrl,
+        String title,
+        String status,
         Instant expiresAt,
         Instant createdAt,
         long totalClicks,

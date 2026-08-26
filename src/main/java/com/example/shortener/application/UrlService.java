@@ -12,6 +12,10 @@ import com.example.shortener.observability.AnalyticsResult;
 import com.example.shortener.observability.RedirectResult;
 import com.example.shortener.observability.ShortenerMetrics;
 import com.example.shortener.persistence.UrlMappingRepository;
+import com.example.shortener.cache.RedirectCacheService;
+import com.example.shortener.messaging.ClickOutboxService;
+import com.example.shortener.org.OrgAccessService;
+import com.example.shortener.org.OrgQuotaService;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
@@ -40,6 +44,10 @@ public class UrlService {
     private final AnalyticsWriter analyticsWriter;
     private final UrlMappingWriter mappingWriter;
     private final int generationAttempts;
+    private final OrgAccessService orgAccess;
+    private final RedirectCacheService redirectCache;
+    private final ClickOutboxService clickOutbox;
+    private final OrgQuotaService orgQuota;
 
     public UrlService(
             UrlMappingRepository repository,
@@ -50,7 +58,9 @@ public class UrlService {
             ShortenerMetrics metrics,
             AnalyticsWriter analyticsWriter,
             UrlMappingWriter mappingWriter,
-            @Value("${app.alias-generation-attempts:5}") int generationAttempts
+            @Value("${app.alias-generation-attempts:5}") int generationAttempts,
+            OrgAccessService orgAccess, RedirectCacheService redirectCache, ClickOutboxService clickOutbox,
+            OrgQuotaService orgQuota
     ) {
         this.repository = repository;
         this.policy = policy;
@@ -61,9 +71,25 @@ public class UrlService {
         this.analyticsWriter = analyticsWriter;
         this.mappingWriter = mappingWriter;
         this.generationAttempts = generationAttempts;
+        this.orgAccess = orgAccess;
+        this.redirectCache = redirectCache;
+        this.clickOutbox = clickOutbox;
+        this.orgQuota = orgQuota;
     }
 
     public CreateUrlResult create(CreateUrlCommand command) {
+        return createInternal(null, null, null, command);
+    }
+
+    public CreateUrlResult create(UUID orgId, String sub, String title, CreateUrlCommand command) {
+        orgAccess.requireWrite(orgId, sub);
+        return createInternal(orgId, sub, title, command);
+    }
+
+    private CreateUrlResult createInternal(UUID orgId, String sub, String title, CreateUrlCommand command) {
+        if (orgId != null) {
+            orgQuota.assertCanCreateLink(orgId);
+        }
         String url = policy.validateUrl(command.originalUrl());
         String alias = policy.validateAlias(command.customAlias());
         Instant now = clock.instant();
@@ -78,8 +104,13 @@ public class UrlService {
             String code = alias == null ? generator.generate() : alias;
             try {
                 UrlMapping saved = mappingWriter.insert(
-                        new UrlMapping(UUID.randomUUID(), code, url, command.expiresAt(), now)
+                        orgId == null
+                                ? new UrlMapping(UUID.randomUUID(), code, url, command.expiresAt(), now)
+                                : new UrlMapping(UUID.randomUUID(), orgId, sub, code, url, title, command.expiresAt(), now)
                 );
+                if (orgId != null) {
+                    orgQuota.recordCreated(orgId);
+                }
                 metrics.urlCreated(aliasType);
                 log.info(
                         "Created short URL shortCode={} aliasType={}",
@@ -111,12 +142,17 @@ public class UrlService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public String resolve(String code) {
+        return resolve(code, null);
+    }
+
+    @Transactional
+    public String resolve(String code, ClickOutboxService.Context context) {
         long start = System.nanoTime();
         RedirectResult result = RedirectResult.NOT_FOUND;
         try {
-            UrlMapping mapping = repository.findByShortCode(code).orElse(null);
+            UrlMapping mapping = redirectCache.find(code).orElse(null);
             if (mapping == null) {
                 result = RedirectResult.NOT_FOUND;
                 throw new NotFoundException();
@@ -126,9 +162,19 @@ public class UrlService {
                 result = RedirectResult.EXPIRED;
                 throw new ExpiredException();
             }
+            if (mapping.getStatus() != UrlMapping.Status.ACTIVE) throw new NotFoundException();
+
+            // Re-validate destination host at redirect time (DNS rebinding residual mitigation).
+            try {
+                policy.validateUrl(mapping.getOriginalUrl());
+            } catch (InvalidRequestException ex) {
+                redirectCache.evict(code);
+                throw new NotFoundException();
+            }
 
             try {
-                analyticsWriter.recordClick(code);
+                if (mapping.getOrganizationId() != null && context != null) clickOutbox.record(mapping, context);
+                else analyticsWriter.recordClick(code);
                 metrics.analyticsUpdate(AnalyticsResult.SUCCESS);
             } catch (RuntimeException exception) {
                 metrics.analyticsUpdate(AnalyticsResult.FAILURE);
@@ -151,6 +197,31 @@ public class UrlService {
         return toDetails(mapping);
     }
 
+    @Transactional(readOnly=true)
+    public UrlDetails get(UUID orgId,String sub,String code){
+        orgAccess.requireMember(orgId,sub);
+        return toDetails(repository.findByOrganizationIdAndShortCode(orgId,code).orElseThrow(NotFoundException::new));
+    }
+    @Transactional(readOnly=true)
+    public java.util.List<UrlDetails> list(UUID orgId,String sub){
+        orgAccess.requireMember(orgId,sub);
+        return repository.findAllByOrganizationIdAndStatusNotOrderByCreatedAtDesc(orgId,UrlMapping.Status.DELETED)
+                .stream().map(this::toDetails).toList();
+    }
+    @Transactional
+    public UrlDetails update(UUID orgId,String sub,String code,String originalUrl,String title,Instant expiresAt){
+        orgAccess.requireWrite(orgId,sub);var m=repository.findByOrganizationIdAndShortCode(orgId,code).orElseThrow(NotFoundException::new);
+        m.update(policy.validateUrl(originalUrl),title,expiresAt,clock.instant());redirectCache.evict(code);return toDetails(m);
+    }
+    @Transactional public void disable(UUID orgId,String sub,String code){
+        orgAccess.requireWrite(orgId,sub);var m=repository.findByOrganizationIdAndShortCode(orgId,code).orElseThrow(NotFoundException::new);
+        m.disable(clock.instant());redirectCache.evict(code);
+    }
+    @Transactional public void delete(UUID orgId,String sub,String code){
+        orgAccess.requireDelete(orgId,sub);var m=repository.findByOrganizationIdAndShortCode(orgId,code).orElseThrow(NotFoundException::new);
+        m.delete(clock.instant());redirectCache.evict(code);
+    }
+
     @Transactional(readOnly = true)
     public AnalyticsView analytics(String code) {
         UrlMapping mapping = repository.findByShortCode(code)
@@ -169,6 +240,8 @@ public class UrlService {
                 mapping.getShortCode(),
                 baseUrl + "/" + mapping.getShortCode(),
                 mapping.getOriginalUrl(),
+                mapping.getTitle(),
+                mapping.getStatus().name(),
                 mapping.getExpiresAt(),
                 mapping.getCreatedAt(),
                 mapping.getTotalClicks(),
