@@ -22,6 +22,7 @@ public class OutboxEvent {
         this.eventId=eventId;this.payload=payload;this.createdAt=createdAt;
     }
     public UUID getId(){return id;} public UUID getEventId(){return eventId;}
+    public String getEventType(){return eventType;}
     public String getPayload(){return payload;} public Instant getCreatedAt(){return createdAt;}
     public void published(Instant at){publishedAt=at;}
 }

@@ -1,11 +1,13 @@
 package com.example.shortener.org;
 
+import com.example.shortener.audit.AuditService;
 import com.example.shortener.domain.InvalidRequestException;
 import com.example.shortener.security.CurrentUser;
 import com.example.shortener.security.KeycloakUserDirectory;
 import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,7 @@ public class OrganizationService {
     private final OrganizationMemberRepository members;
     private final OrgAccessService access;
     private final KeycloakUserDirectory userDirectory;
+    private final AuditService audit;
     private final Clock clock;
 
     public OrganizationService(
@@ -35,12 +38,14 @@ public class OrganizationService {
             OrganizationMemberRepository members,
             OrgAccessService access,
             KeycloakUserDirectory userDirectory,
+            AuditService audit,
             Clock clock
     ) {
         this.organizations = organizations;
         this.members = members;
         this.access = access;
         this.userDirectory = userDirectory;
+        this.audit = audit;
         this.clock = clock;
     }
 
@@ -62,6 +67,8 @@ public class OrganizationService {
                 OrganizationMember.Role.OWNER,
                 clock.instant()
         ));
+        audit.record(org.getId(), user.sub(), "ORG_CREATED", "Organization", org.getId().toString(),
+                Map.of("slug", normalized, "name", name.trim()));
         return new OrgView(org.getId(), org.getName(), org.getSlug(), "OWNER", org.getCreatedAt());
     }
 
@@ -107,7 +114,7 @@ public class OrganizationService {
             throw new InvalidRequestException("Cannot assign OWNER via invite; transfer ownership separately");
         }
         KeycloakUserDirectory.DirectoryUser user = userDirectory.findOrInviteByEmail(email);
-        return addResolved(orgId, user.sub(), user.email(), user.displayName(), role);
+        return addResolved(orgId, actor, user.sub(), user.email(), user.displayName(), role, "MEMBER_INVITED");
     }
 
     @Transactional
@@ -123,15 +130,17 @@ public class OrganizationService {
         if (role == OrganizationMember.Role.OWNER) {
             throw new InvalidRequestException("Cannot assign OWNER via invite; transfer ownership separately");
         }
-        return addResolved(orgId, sub, email, name, role);
+        return addResolved(orgId, actor, sub, email, name, role, "MEMBER_ADDED");
     }
 
     private MemberView addResolved(
             UUID orgId,
+            String actor,
             String sub,
             String email,
             String name,
-            OrganizationMember.Role role
+            OrganizationMember.Role role,
+            String auditAction
     ) {
         if (members.findByOrganizationIdAndUserSub(orgId, sub).isPresent()) {
             throw new InvalidRequestException("User is already a member of this organization");
@@ -145,6 +154,8 @@ public class OrganizationService {
                 role,
                 clock.instant()
         ));
+        audit.record(orgId, actor, auditAction, "Member", saved.getId().toString(),
+                Map.of("userSub", sub, "role", role.name()));
         return new MemberView(
                 saved.getId(),
                 saved.getUserSub(),
@@ -174,6 +185,8 @@ public class OrganizationService {
             }
         }
         member.changeRole(role);
+        audit.record(orgId, actor, "MEMBER_ROLE_CHANGED", "Member", memberId.toString(),
+                Map.of("role", role.name(), "userSub", member.getUserSub()));
         return new MemberView(
                 member.getId(),
                 member.getUserSub(),
@@ -195,6 +208,8 @@ public class OrganizationService {
                 .orElseThrow(() -> new InvalidRequestException("Target member not found"));
         current.changeRole(OrganizationMember.Role.ADMIN);
         target.changeRole(OrganizationMember.Role.OWNER);
+        audit.record(orgId, actorSub, "OWNERSHIP_TRANSFERRED", "Organization", orgId.toString(),
+                Map.of("newOwnerSub", newOwnerSub));
         return new MemberView(
                 target.getId(),
                 target.getUserSub(),

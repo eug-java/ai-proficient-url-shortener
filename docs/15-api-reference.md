@@ -2,14 +2,14 @@
 
 Base URL: `http://localhost:8080`
 
-Auth: `Authorization: Bearer <Keycloak access token>`  
+Auth: `Authorization: Bearer <Keycloak access token>` **or** `Authorization: ApiKey sk_live_...`  
 Tests (security disabled): `X-Test-User-Sub: <subject>`
 
 Public (no auth):
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/{shortCode}` | 302 redirect; enqueues click analytics |
+| GET | `/{shortCode}` | 302 redirect; Host selects verified custom domain org when present |
 
 Authenticated management:
 
@@ -22,6 +22,11 @@ Authenticated management:
 | POST | `/api/v1/orgs/{orgId}/invites` | OWNER (email invite via Keycloak Admin; creates user if missing) |
 | POST | `/api/v1/orgs/{orgId}/transfer-ownership` | OWNER → new OWNER |
 | PATCH | `/api/v1/orgs/{orgId}/members/{memberId}` | OWNER (cannot demote last OWNER) |
+| GET | `/api/v1/orgs/{orgId}/audit` | OWNER (append-only admin audit) |
+| GET/POST | `/api/v1/orgs/{orgId}/domains` | list / add vanity hostname |
+| POST | `/api/v1/orgs/{orgId}/domains/{id}/verify` | OWNER (TXT verify; skippable in test) |
+| GET/POST/DELETE | `/api/v1/orgs/{orgId}/integrations/webhooks` | OWNER outbound webhooks |
+| GET/POST/DELETE | `/api/v1/orgs/{orgId}/integrations/api-keys` | OWNER machine keys |
 | POST | `/api/v1/orgs/{orgId}/urls` | OWNER/ADMIN/MEMBER |
 | GET | `/api/v1/orgs/{orgId}/urls` | MEMBER+ |
 | GET | `/api/v1/orgs/{orgId}/urls/{code}` | MEMBER+ |
@@ -32,6 +37,8 @@ Authenticated management:
 | GET | `.../analytics/timeseries?days=30` | MEMBER+ |
 | GET | `.../analytics/breakdowns/{dimension}?days=30` | MEMBER+ (`referrer`,`browser`,`os`,`country`,`device`) |
 | GET | `.../analytics/export.csv?days=30` | MEMBER+ |
+
+See `docs/17-integrations.md` for webhook signatures and API keys.
 
 Legacy unscoped `/api/v1/urls*` remains for demos when security is off; prefer org-scoped paths.
 

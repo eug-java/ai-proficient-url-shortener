@@ -34,11 +34,18 @@ public class UrlController {
     private final UrlService service;
     private final CurrentUser currentUser;
     private final GeoCountryResolver geoCountryResolver;
+    private final com.example.shortener.customdomain.CustomDomainService customDomains;
 
-    public UrlController(UrlService service, CurrentUser currentUser, GeoCountryResolver geoCountryResolver) {
+    public UrlController(
+            UrlService service,
+            CurrentUser currentUser,
+            GeoCountryResolver geoCountryResolver,
+            com.example.shortener.customdomain.CustomDomainService customDomains
+    ) {
         this.service = service;
         this.currentUser = currentUser;
         this.geoCountryResolver = geoCountryResolver;
+        this.customDomains = customDomains;
     }
 
     public record UpdateUrlRequest(String originalUrl, String title, java.time.Instant expiresAt) {}
@@ -129,6 +136,7 @@ public class UrlController {
     @Operation(summary = "Public redirect")
     public ResponseEntity<Void> redirect(@PathVariable String shortCode, HttpServletRequest request) {
         String country = geoCountryResolver.resolve(request).orElse(null);
+        UUID hostOrg = customDomains.resolveVerifiedOrgId(request.getServerName()).orElse(null);
         String destination = service.resolve(
                 shortCode,
                 new ClickOutboxService.Context(
@@ -136,7 +144,8 @@ public class UrlController {
                         request.getHeader("User-Agent"),
                         request.getHeader("Referer"),
                         country
-                )
+                ),
+                hostOrg
         );
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(destination)).build();
     }

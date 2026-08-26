@@ -44,8 +44,9 @@ jobs:
           npm ci
           npm test
 
+      # Use v-prefixed tags (0.30.0 no longer resolves after Aqua's 2026 remediation).
       - name: Dependency vulnerability scan
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .

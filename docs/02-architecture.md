@@ -6,7 +6,7 @@ See also: [13-production-scope-lock.md](13-production-scope-lock.md).
 
 | Component | Role |
 |---|---|
-| `app` | Spring Boot 3.4 API + redirect + outbox publisher + Kafka consumer |
+| `app` | Spring Boot 3.5 API + redirect + outbox publisher + Kafka consumer |
 | `postgres` | Source of truth: orgs, memberships, links, outbox, click_events, rollups |
 | `redis` | Redirect hot cache + rate-limit counters |
 | `kafka` | Durable click stream between redirect path and analytics writers |

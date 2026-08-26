@@ -16,7 +16,7 @@ Plan:
 
 | Artifact | Location |
 |---|---|
-| Runnable service | Spring Boot 3.4 / Java 21 |
+| Runnable service | Spring Boot 3.5 / Java 21 |
 | Migrations | `src/main/resources/db/migration/` |
 | Tests | `src/test/java/...` |
 | CI | `.github/workflows/ci.yml` (verify + Trivy + Docker) |
@@ -34,9 +34,17 @@ Plan:
 | Demo script | `docs/11-demo-script.md` |
 | Verify evidence | `docs/evidence/` (`mvn-verify.log`, Surefire summary, JaCoCo HTML) |
 
+## Production uplift (post-assessment)
+
+The codebase now also includes multi-tenant orgs/roles (Keycloak), Redis/Kafka analytics,
+React dashboard, org audit log, custom domains, outbound webhooks, and org API keys for
+cross-service integration. See `docs/13-production-scope-lock.md`, `docs/15-api-reference.md`,
+and `docs/17-integrations.md`. Early assessment notes that list “auth out of scope” describe
+the original interview prototype, not the current production branch.
+
 ## Assumptions
 
-- Assessment timebox favors a modular monolith over distributed services.
+- Assessment timebox originally favored a modular monolith over distributed services.
 - Multiple short codes may map to the same original URL.
 - Aliases are case-sensitive.
 - Redirect availability outranks exact in-request click durability for the prototype.

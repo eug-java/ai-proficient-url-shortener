@@ -1,5 +1,7 @@
 package com.example.shortener.application;
 
+import com.example.shortener.audit.AuditService;
+import com.example.shortener.cache.RedirectCacheService;
 import com.example.shortener.domain.AliasGenerator;
 import com.example.shortener.domain.DuplicateAliasException;
 import com.example.shortener.domain.ExpiredException;
@@ -7,19 +9,19 @@ import com.example.shortener.domain.InvalidRequestException;
 import com.example.shortener.domain.NotFoundException;
 import com.example.shortener.domain.UrlMapping;
 import com.example.shortener.domain.UrlPolicy;
+import com.example.shortener.messaging.ClickOutboxService;
 import com.example.shortener.observability.AliasType;
 import com.example.shortener.observability.AnalyticsResult;
 import com.example.shortener.observability.RedirectResult;
 import com.example.shortener.observability.ShortenerMetrics;
-import com.example.shortener.persistence.UrlMappingRepository;
-import com.example.shortener.cache.RedirectCacheService;
-import com.example.shortener.messaging.ClickOutboxService;
 import com.example.shortener.org.OrgAccessService;
 import com.example.shortener.org.OrgQuotaService;
+import com.example.shortener.persistence.UrlMappingRepository;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +50,7 @@ public class UrlService {
     private final RedirectCacheService redirectCache;
     private final ClickOutboxService clickOutbox;
     private final OrgQuotaService orgQuota;
+    private final AuditService audit;
 
     public UrlService(
             UrlMappingRepository repository,
@@ -59,8 +62,11 @@ public class UrlService {
             AnalyticsWriter analyticsWriter,
             UrlMappingWriter mappingWriter,
             @Value("${app.alias-generation-attempts:5}") int generationAttempts,
-            OrgAccessService orgAccess, RedirectCacheService redirectCache, ClickOutboxService clickOutbox,
-            OrgQuotaService orgQuota
+            OrgAccessService orgAccess,
+            RedirectCacheService redirectCache,
+            ClickOutboxService clickOutbox,
+            OrgQuotaService orgQuota,
+            AuditService audit
     ) {
         this.repository = repository;
         this.policy = policy;
@@ -75,6 +81,7 @@ public class UrlService {
         this.redirectCache = redirectCache;
         this.clickOutbox = clickOutbox;
         this.orgQuota = orgQuota;
+        this.audit = audit;
     }
 
     public CreateUrlResult create(CreateUrlCommand command) {
@@ -110,6 +117,8 @@ public class UrlService {
                 );
                 if (orgId != null) {
                     orgQuota.recordCreated(orgId);
+                    audit.record(orgId, sub, "LINK_CREATED", "UrlMapping", saved.getId().toString(),
+                            Map.of("shortCode", code));
                 }
                 metrics.urlCreated(aliasType);
                 log.info(
@@ -149,12 +158,23 @@ public class UrlService {
 
     @Transactional
     public String resolve(String code, ClickOutboxService.Context context) {
+        return resolve(code, context, null);
+    }
+
+    @Transactional
+    public String resolve(String code, ClickOutboxService.Context context, UUID hostOrganizationId) {
         long start = System.nanoTime();
         RedirectResult result = RedirectResult.NOT_FOUND;
         try {
-            UrlMapping mapping = redirectCache.find(code).orElse(null);
+            UrlMapping mapping = hostOrganizationId == null
+                    ? redirectCache.find(code).orElse(null)
+                    : repository.findByOrganizationIdAndShortCode(hostOrganizationId, code).orElse(null);
             if (mapping == null) {
                 result = RedirectResult.NOT_FOUND;
+                throw new NotFoundException();
+            }
+            if (hostOrganizationId != null && mapping.getOrganizationId() != null
+                    && !hostOrganizationId.equals(mapping.getOrganizationId())) {
                 throw new NotFoundException();
             }
 
@@ -211,15 +231,19 @@ public class UrlService {
     @Transactional
     public UrlDetails update(UUID orgId,String sub,String code,String originalUrl,String title,Instant expiresAt){
         orgAccess.requireWrite(orgId,sub);var m=repository.findByOrganizationIdAndShortCode(orgId,code).orElseThrow(NotFoundException::new);
-        m.update(policy.validateUrl(originalUrl),title,expiresAt,clock.instant());redirectCache.evict(code);return toDetails(m);
+        m.update(policy.validateUrl(originalUrl),title,expiresAt,clock.instant());redirectCache.evict(code);
+        audit.record(orgId, sub, "LINK_UPDATED", "UrlMapping", m.getId().toString(), Map.of("shortCode", code));
+        return toDetails(m);
     }
     @Transactional public void disable(UUID orgId,String sub,String code){
         orgAccess.requireWrite(orgId,sub);var m=repository.findByOrganizationIdAndShortCode(orgId,code).orElseThrow(NotFoundException::new);
         m.disable(clock.instant());redirectCache.evict(code);
+        audit.record(orgId, sub, "LINK_DISABLED", "UrlMapping", m.getId().toString(), Map.of("shortCode", code));
     }
     @Transactional public void delete(UUID orgId,String sub,String code){
         orgAccess.requireDelete(orgId,sub);var m=repository.findByOrganizationIdAndShortCode(orgId,code).orElseThrow(NotFoundException::new);
         m.delete(clock.instant());redirectCache.evict(code);
+        audit.record(orgId, sub, "LINK_DELETED", "UrlMapping", m.getId().toString(), Map.of("shortCode", code));
     }
 
     @Transactional(readOnly = true)
