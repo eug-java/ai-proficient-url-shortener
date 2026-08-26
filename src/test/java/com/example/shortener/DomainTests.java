@@ -7,13 +7,14 @@ import com.example.shortener.domain.InvalidRequestException;
 import com.example.shortener.domain.ShortCodeGenerator;
 import com.example.shortener.domain.UrlMapping;
 import com.example.shortener.domain.UrlPolicy;
+import java.net.InetAddress;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class DomainTests {
 
-    private final UrlPolicy policy = new UrlPolicy();
+    private final UrlPolicy policy = new UrlPolicy(InetAddress::getAllByName);
 
     @Test
     void expirationBoundary() {

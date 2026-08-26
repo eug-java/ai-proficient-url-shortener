@@ -1,5 +1,7 @@
 package com.example.shortener.config;
 
+import com.example.shortener.domain.HostAddressResolver;
+import java.net.InetAddress;
 import java.time.Clock;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,11 @@ public class ApplicationConfig {
     @Bean
     Clock utcClock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    HostAddressResolver hostAddressResolver() {
+        return InetAddress::getAllByName;
     }
 
     @Bean
