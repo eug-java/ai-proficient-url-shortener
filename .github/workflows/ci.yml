@@ -21,8 +21,28 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Resolve app version
+        id: version
+        run: |
+          VERSION=$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved project.version=${VERSION}"
+
       - name: Compile and run tests
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Dashboard unit tests
+        working-directory: dashboard
+        run: |
+          npm ci
+          npm test
 
       - name: Dependency vulnerability scan
         uses: aquasecurity/trivy-action@0.30.0
@@ -34,4 +54,8 @@ jobs:
           ignore-unfixed: true
 
       - name: Build Docker image
-        run: docker build --tag ai-proficient-url-shortener:${{ github.sha }} .
+        run: |
+          docker build \
+            --tag "ai-proficient-url-shortener:${{ steps.version.outputs.version }}" \
+            --tag "ai-proficient-url-shortener:${{ github.sha }}" \
+            .

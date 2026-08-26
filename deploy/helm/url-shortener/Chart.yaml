@@ -1,0 +1,6 @@
+apiVersion: v2
+name: url-shortener
+description: Production-like Helm chart for the multi-tenant URL shortener API
+type: application
+version: 0.1.0
+appVersion: "0.0.1-SNAPSHOT"
